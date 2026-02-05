@@ -1,0 +1,17 @@
+{
+  "name": "calculator-code",
+  "version": "1.0.0",
+  "description": "A small calculator library + CLI with tests.",
+  "type": "module",
+  "bin": {
+    "calc": "./bin/calc.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "node -c src/calculator.js && node -c bin/calc.js"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}
