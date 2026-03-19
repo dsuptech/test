@@ -9,9 +9,80 @@ OpenWeatherMap API를 사용합니다.
 """
 
 import os
+import sys
 import requests
 from dataclasses import dataclass
 from typing import Optional
+from pathlib import Path
+
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+
+SCRIPT_DIR = Path(__file__).parent
+SUNNY_IMAGE_PATH = SCRIPT_DIR / "images" / "sunny_puppy.jpg"
+
+SUNNY_KEYWORDS = ["맑음", "clear", "sunny", "청명"]
+
+
+def is_sunny(description: str) -> bool:
+    """날씨 설명이 맑음인지 확인"""
+    description_lower = description.lower()
+    return any(keyword in description_lower for keyword in SUNNY_KEYWORDS)
+
+
+def display_image(image_path: Path) -> None:
+    """이미지를 화면에 표시합니다."""
+    if not image_path.exists():
+        print(f"⚠️  이미지 파일을 찾을 수 없습니다: {image_path}")
+        return
+    
+    if not HAS_PIL:
+        print(f"🖼️  맑은 날씨 이미지: {image_path}")
+        print("   (이미지를 직접 보려면 'pip install Pillow'를 설치하세요)")
+        return
+    
+    try:
+        img = Image.open(image_path)
+        print(f"\n🖼️  맑은 날씨입니다! 이미지를 표시합니다...")
+        print(f"   이미지 경로: {image_path}")
+        print(f"   이미지 크기: {img.size[0]}x{img.size[1]}")
+        
+        if sys.platform == "darwin":
+            os.system(f"open '{image_path}'")
+        elif sys.platform == "win32":
+            os.startfile(str(image_path))
+        elif sys.platform.startswith("linux"):
+            if os.environ.get("DISPLAY"):
+                os.system(f"xdg-open '{image_path}' 2>/dev/null &")
+            else:
+                print_image_ascii(img)
+    except Exception as e:
+        print(f"⚠️  이미지 표시 오류: {e}")
+
+
+def print_image_ascii(img: "Image.Image", width: int = 60) -> None:
+    """이미지를 ASCII 아트로 터미널에 출력"""
+    ascii_chars = " .:-=+*#%@"
+    
+    aspect_ratio = img.height / img.width
+    new_height = int(width * aspect_ratio * 0.5)
+    img_resized = img.resize((width, new_height))
+    img_gray = img_resized.convert("L")
+    
+    print("\n" + "=" * width)
+    for y in range(new_height):
+        line = ""
+        for x in range(width):
+            pixel = img_gray.getpixel((x, y))
+            char_idx = int(pixel / 256 * len(ascii_chars))
+            char_idx = min(char_idx, len(ascii_chars) - 1)
+            line += ascii_chars[char_idx]
+        print(line)
+    print("=" * width + "\n")
 
 
 @dataclass
@@ -36,6 +107,16 @@ class WeatherInfo:
 │ 💨 풍속: {self.wind_speed} m/s
 └─────────────────────────────────────────┘
 """
+    
+    def is_sunny(self) -> bool:
+        """날씨가 맑음인지 확인"""
+        return is_sunny(self.description)
+    
+    def display_with_image(self) -> None:
+        """날씨 정보를 출력하고, 맑음이면 이미지도 표시"""
+        print(self)
+        if self.is_sunny():
+            display_image(SUNNY_IMAGE_PATH)
 
 
 class WeatherAPI:
@@ -159,7 +240,7 @@ def main():
     weather_data = get_multiple_cities_weather(api, cities)
     
     for city, weather in weather_data.items():
-        print(weather)
+        weather.display_with_image()
     
     # 특정 도시 조회 예시
     print("\n" + "=" * 50)
@@ -168,7 +249,7 @@ def main():
     
     try:
         tokyo_weather = api.get_weather_by_city("Tokyo")
-        print(tokyo_weather)
+        tokyo_weather.display_with_image()
     except (ValueError, ConnectionError) as e:
         print(f"⚠️  도쿄 조회 실패: {e}")
 
