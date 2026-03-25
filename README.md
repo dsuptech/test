@@ -26,3 +26,7 @@
 
 - 변경사항은 README와 함께 지속적으로 업데이트합니다.
 - 초기 설계 의도와 실제 구현 간 차이를 추적 가능하도록 기록합니다.
+
+## 프로젝트 문서
+
+- [Connect 서버 개발 계획서](./CONNECT_SERVER_DEVELOPMENT_PLAN.md)
