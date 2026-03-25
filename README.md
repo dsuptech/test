@@ -30,3 +30,50 @@
 ## 프로젝트 문서
 
 - [Connect 서버 개발 계획서](./CONNECT_SERVER_DEVELOPMENT_PLAN.md)
+
+## 빠른 시작
+
+### 요구 사항
+- Node.js 20+
+- npm 10+
+
+### 설치
+```bash
+npm install
+```
+
+### 개발 서버 실행
+```bash
+npm run dev
+```
+
+기본 포트는 `3000`이며, 다음 환경 변수를 사용할 수 있습니다.
+
+- `PORT`: 서버 포트 (기본값: `3000`)
+- `CONNECT_API_TOKEN`: API 인증 토큰 (기본값: `dev-connect-token`)
+
+### 프로덕션 실행
+```bash
+npm run build
+npm start
+```
+
+### 테스트
+```bash
+npm test
+```
+
+## API 개요
+
+### 헬스체크
+- `GET /health`
+
+### 세션 API (인증 필요)
+아래 엔드포인트는 `Authorization: Bearer <token>` 헤더가 필요합니다.
+
+- `POST /api/v1/sessions`  
+  세션 생성 (`clientId` 필요)
+- `GET /api/v1/sessions/:id`  
+  세션 조회
+- `DELETE /api/v1/sessions/:id`  
+  세션 종료
