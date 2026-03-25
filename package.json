@@ -23,8 +23,7 @@
   },
   "homepage": "https://github.com/dsuptech/test#readme",
   "dependencies": {
-    "express": "^5.2.1",
-    "uuid": "^13.0.0"
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

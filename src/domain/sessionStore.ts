@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { Session } from "../types/session";
 
 export class SessionStore {
@@ -7,7 +7,7 @@ export class SessionStore {
   create(clientId: string): Session {
     const now = new Date().toISOString();
     const session: Session = {
-      id: uuidv4(),
+      id: randomUUID(),
       clientId,
       status: "active",
       createdAt: now,
