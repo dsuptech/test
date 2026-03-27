@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>간단한 테트리스</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #111827;
+        font-family: Arial, sans-serif;
+      }
+
+      .game-wrap {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        padding: 20px;
+        border-radius: 16px;
+        background: #1f2937;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+
+      canvas {
+        border: 2px solid #374151;
+        background: #0b1020;
+      }
+
+      .panel {
+        min-width: 180px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+
+      .score {
+        margin: 0 0 14px;
+        font-size: 18px;
+      }
+
+      .help {
+        margin: 0;
+        padding-left: 18px;
+        line-height: 1.5;
+        color: #d1d5db;
+        font-size: 14px;
+      }
+
+      .button-row {
+        margin-top: 14px;
+      }
+
+      button {
+        width: 100%;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        font-weight: 700;
+        color: #111827;
+        background: #f59e0b;
+      }
+
+      button:hover {
+        filter: brightness(1.05);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="game-wrap">
+      <canvas id="game" width="300" height="600" aria-label="테트리스 보드"></canvas>
+      <aside class="panel">
+        <h1>테트리스</h1>
+        <p class="score">점수: <span id="score">0</span></p>
+        <ul class="help">
+          <li>← → : 이동</li>
+          <li>↓ : 빠르게 내리기</li>
+          <li>↑ : 회전</li>
+          <li>스페이스: 즉시 낙하</li>
+        </ul>
+        <div class="button-row">
+          <button id="restartBtn" type="button">다시 시작</button>
+        </div>
+      </aside>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("game");
+      const context = canvas.getContext("2d");
+      const scoreEl = document.getElementById("score");
+      const restartBtn = document.getElementById("restartBtn");
+
+      context.scale(30, 30);
+
+      const arena = createMatrix(10, 20);
+      const player = {
+        pos: { x: 0, y: 0 },
+        matrix: null,
+        score: 0,
+      };
+
+      let dropCounter = 0;
+      let dropInterval = 700;
+      let lastTime = 0;
+      let gameOver = false;
+
+      const colors = [
+        null,
+        "#60a5fa",
+        "#34d399",
+        "#fbbf24",
+        "#fb7185",
+        "#a78bfa",
+        "#f97316",
+        "#f43f5e",
+      ];
+
+      function createMatrix(width, height) {
+        return Array.from({ length: height }, () => Array(width).fill(0));
+      }
+
+      function createPiece(type) {
+        switch (type) {
+          case "T":
+            return [
+              [0, 1, 0],
+              [1, 1, 1],
+              [0, 0, 0],
+            ];
+          case "O":
+            return [
+              [2, 2],
+              [2, 2],
+            ];
+          case "L":
+            return [
+              [0, 3, 0],
+              [0, 3, 0],
+              [0, 3, 3],
+            ];
+          case "J":
+            return [
+              [0, 4, 0],
+              [0, 4, 0],
+              [4, 4, 0],
+            ];
+          case "I":
+            return [
+              [0, 5, 0, 0],
+              [0, 5, 0, 0],
+              [0, 5, 0, 0],
+              [0, 5, 0, 0],
+            ];
+          case "S":
+            return [
+              [0, 6, 6],
+              [6, 6, 0],
+              [0, 0, 0],
+            ];
+          case "Z":
+            return [
+              [7, 7, 0],
+              [0, 7, 7],
+              [0, 0, 0],
+            ];
+          default:
+            return [[1]];
+        }
+      }
+
+      function collide(arenaMatrix, playerState) {
+        const [matrix, pos] = [playerState.matrix, playerState.pos];
+        for (let y = 0; y < matrix.length; y++) {
+          for (let x = 0; x < matrix[y].length; x++) {
+            if (
+              matrix[y][x] !== 0 &&
+              (arenaMatrix[y + pos.y] && arenaMatrix[y + pos.y][x + pos.x]) !== 0
+            ) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      function merge(arenaMatrix, playerState) {
+        playerState.matrix.forEach((row, y) => {
+          row.forEach((value, x) => {
+            if (value !== 0) {
+              arenaMatrix[y + playerState.pos.y][x + playerState.pos.x] = value;
+            }
+          });
+        });
+      }
+
+      function arenaSweep() {
+        let rowCount = 1;
+        outer: for (let y = arena.length - 1; y >= 0; y--) {
+          for (let x = 0; x < arena[y].length; x++) {
+            if (arena[y][x] === 0) {
+              continue outer;
+            }
+          }
+
+          const row = arena.splice(y, 1)[0].fill(0);
+          arena.unshift(row);
+          y++;
+
+          player.score += rowCount * 10;
+          rowCount *= 2;
+        }
+      }
+
+      function drawMatrix(matrix, offset) {
+        matrix.forEach((row, y) => {
+          row.forEach((value, x) => {
+            if (value !== 0) {
+              context.fillStyle = colors[value];
+              context.fillRect(x + offset.x, y + offset.y, 1, 1);
+              context.strokeStyle = "rgba(17, 24, 39, 0.5)";
+              context.lineWidth = 0.05;
+              context.strokeRect(x + offset.x, y + offset.y, 1, 1);
+            }
+          });
+        });
+      }
+
+      function draw() {
+        context.fillStyle = "#0b1020";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        drawMatrix(arena, { x: 0, y: 0 });
+        if (!gameOver) {
+          drawMatrix(player.matrix, player.pos);
+        }
+      }
+
+      function playerDrop() {
+        if (gameOver) {
+          return;
+        }
+
+        player.pos.y++;
+        if (collide(arena, player)) {
+          player.pos.y--;
+          merge(arena, player);
+          arenaSweep();
+          updateScore();
+          playerReset();
+        }
+        dropCounter = 0;
+      }
+
+      function hardDrop() {
+        if (gameOver) {
+          return;
+        }
+        while (!collide(arena, player)) {
+          player.pos.y++;
+        }
+        player.pos.y--;
+        playerDrop();
+      }
+
+      function playerMove(direction) {
+        if (gameOver) {
+          return;
+        }
+        player.pos.x += direction;
+        if (collide(arena, player)) {
+          player.pos.x -= direction;
+        }
+      }
+
+      function rotate(matrix, direction) {
+        for (let y = 0; y < matrix.length; y++) {
+          for (let x = 0; x < y; x++) {
+            [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+          }
+        }
+
+        if (direction > 0) {
+          matrix.forEach((row) => row.reverse());
+        } else {
+          matrix.reverse();
+        }
+      }
+
+      function playerRotate(direction) {
+        if (gameOver) {
+          return;
+        }
+
+        const startX = player.pos.x;
+        let offset = 1;
+        rotate(player.matrix, direction);
+
+        while (collide(arena, player)) {
+          player.pos.x += offset;
+          offset = -(offset + (offset > 0 ? 1 : -1));
+          if (offset > player.matrix[0].length) {
+            rotate(player.matrix, -direction);
+            player.pos.x = startX;
+            return;
+          }
+        }
+      }
+
+      function playerReset() {
+        const pieces = "ILJOTSZ";
+        player.matrix = createPiece(pieces[(pieces.length * Math.random()) | 0]);
+        player.pos.y = 0;
+        player.pos.x = ((arena[0].length / 2) | 0) - ((player.matrix[0].length / 2) | 0);
+
+        if (collide(arena, player)) {
+          gameOver = true;
+          draw();
+          context.fillStyle = "rgba(0, 0, 0, 0.65)";
+          context.fillRect(0, 0, 10, 20);
+          context.fillStyle = "#ffffff";
+          context.font = "1px Arial";
+          context.fillText("GAME OVER", 2.3, 10);
+          context.fillText("다시 시작 버튼 클릭", 1.4, 11.4);
+        }
+      }
+
+      function updateScore() {
+        scoreEl.textContent = String(player.score);
+      }
+
+      function resetGame() {
+        arena.forEach((row) => row.fill(0));
+        player.score = 0;
+        gameOver = false;
+        updateScore();
+        playerReset();
+        update();
+      }
+
+      function update(time = 0) {
+        const deltaTime = time - lastTime;
+        lastTime = time;
+        dropCounter += deltaTime;
+
+        if (dropCounter > dropInterval) {
+          playerDrop();
+        }
+
+        draw();
+
+        if (!gameOver) {
+          requestAnimationFrame(update);
+        }
+      }
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowLeft") {
+          playerMove(-1);
+        } else if (event.key === "ArrowRight") {
+          playerMove(1);
+        } else if (event.key === "ArrowDown") {
+          playerDrop();
+        } else if (event.key === "ArrowUp") {
+          playerRotate(1);
+        } else if (event.code === "Space") {
+          event.preventDefault();
+          hardDrop();
+        }
+      });
+
+      restartBtn.addEventListener("click", resetGame);
+
+      playerReset();
+      updateScore();
+      update();
+    </script>
+  </body>
+</html>
