@@ -64,4 +64,27 @@ describe("Connect server", () => {
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe("SESSION_NOT_FOUND");
   });
+
+  it("returns 409 when closing an already closed session", async () => {
+    const app = createApp(token);
+
+    const createResponse = await request(app)
+      .post("/api/v1/sessions")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ clientId: "client-B" });
+    const sessionId = createResponse.body.id as string;
+
+    const firstClose = await request(app)
+      .delete(`/api/v1/sessions/${sessionId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(firstClose.status).toBe(200);
+    expect(firstClose.body.status).toBe("closed");
+
+    const secondClose = await request(app)
+      .delete(`/api/v1/sessions/${sessionId}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(secondClose.status).toBe(409);
+    expect(secondClose.body.error.code).toBe("SESSION_ALREADY_CLOSED");
+  });
 });

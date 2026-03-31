@@ -28,11 +28,21 @@ export const sessionsRouter = (store: SessionStore): Router => {
   });
 
   router.delete("/sessions/:id", (req, res) => {
-    const session = store.close(req.params.id);
-    if (!session) {
+    const existingSession = store.findById(req.params.id);
+    if (!existingSession) {
       throw new AppError(404, "SESSION_NOT_FOUND", "Session not found.");
     }
-    res.status(200).json(session);
+
+    if (existingSession.status === "closed") {
+      throw new AppError(409, "SESSION_ALREADY_CLOSED", "Session is already closed.");
+    }
+
+    const closedSession = store.close(req.params.id);
+    if (!closedSession) {
+      throw new AppError(404, "SESSION_NOT_FOUND", "Session not found.");
+    }
+
+    res.status(200).json(closedSession);
   });
 
   return router;
